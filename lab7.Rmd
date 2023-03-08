@@ -24,21 +24,61 @@ ames_num <-  dat %>%
 First we need to preprocess the data.  Dummy code the nominal variables, normalize all the numeric variables (scale matters here), then prep and bake.
 ```{r}
 
+ames_recipe <- recipe(Sale_Price ~ .,
+                   data = ames_num) |> 
+  step_dummy(all_nominal(), -all_outcomes(), one_hot = TRUE) |>  # For all the nominal variable
+  step_normalize(all_numeric(), -all_outcomes(), ) |> #So they are all in the correct proportion
+  prep() %>%  # Apply the steps. Calculates all the steps for nomial variables it in the background
+  bake(., ames_num) %>% 
+  select(. , -c(Neighborhood_Hayden_Lake, Sale_Price))
+
 ```
 
 K-means clustering.  For this algorithm, we need to specify the number of clusters to form.  How many do you think there are?  
 ```{r}
 
+ames_clust <- kmeans(ames_recipe, centers = 6) #Creates the clusters by spatial caracteristics
+
+summary(ames_clust)
+##tidy(ames_clust)
+
 #now let's try a systematic method for setting k
+
+clusters <- fviz_nbclust(ames_recipe,
+                         kmeans,
+                         method = "wss",
+                         k.max = 25, # Number of clusters
+                         verbose = FALSE) 
+#class(clusters)
+
+# Seek for the nature of the data and look for the "ELBOW" It is important to find that balance between different clusters and SSE.
 
 ```
 
 ```{r}
 #We can examine predictor averages for each cluster
+
+augment(ames_clust, ames_recipe) |> 
+  ggplot(aes(Latitude, Longitude, color = .cluster)) +
+  geom_point()
+
+
+augment_check <- augment(ames_clust, ames_recipe)
+
+class(augment_check)
+
+names(augment_check)
+
+class(augment_check$.cluster[1])
+
 ```
 
 Update the dataset
 ```{r}
+
+final_data <- cbind(ames_recipe, cluster = ames_clust$cluster)
+
+
 ```
 
 Hierarchical clustering
